@@ -1,11 +1,13 @@
 import sqlite3
 
+
 def create_worker(name):
     conn = sqlite3.connect('tasks.db')
     cursor = conn.cursor()
     cursor.execute('INSERT INTO workers (name) VALUES (?)', (name,))
     conn.commit()
     conn.close()
+
 
 def read_workers():
     conn = sqlite3.connect('tasks.db')
@@ -15,6 +17,7 @@ def read_workers():
     conn.close()
     return workers
 
+
 def create_task(worker_id, title, start_time, end_time, status):
     conn = sqlite3.connect('tasks.db')
     cursor = conn.cursor()
@@ -22,6 +25,7 @@ def create_task(worker_id, title, start_time, end_time, status):
                    (worker_id, title, start_time, end_time, status))
     conn.commit()
     conn.close()
+
 
 def read_tasks():
     conn = sqlite3.connect('tasks.db')

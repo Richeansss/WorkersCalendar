@@ -1,5 +1,6 @@
 import sqlite3
 
+
 def create_db():
     conn = sqlite3.connect('tasks.db')
     cursor = conn.cursor()
@@ -8,6 +9,7 @@ def create_db():
         CREATE TABLE IF NOT EXISTS workers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
+            color TEXT NOT NULL
         )
         ''')
 
@@ -25,5 +27,6 @@ def create_db():
 
     conn.commit()
     conn.close()
+
 
 create_db()
