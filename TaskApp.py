@@ -1,7 +1,9 @@
 import sys
 import sqlite3
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QListWidget, QFormLayout, \
-    QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QListWidget,
+    QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem
+)
 from PyQt5.QtCore import QDate
 
 
@@ -27,10 +29,10 @@ class TaskManager(QMainWindow):
         self.setup_worker_tab()
         self.setup_task_tab()
 
-        # Подключаем сигнал переключения вкладок к методу обновления данных
+        # Connect tab change signal to data update method
         self.tabs.currentChanged.connect(self.update_data)
 
-        # Изначальная загрузка данных
+        # Initial data load
         self.update_data()
 
     def setup_worker_tab(self):
@@ -53,7 +55,7 @@ class TaskManager(QMainWindow):
 
         self.worker_tab.setLayout(self.worker_layout)
 
-        # Подключаем кнопки к методам
+        # Connect buttons to methods
         self.add_worker_button.clicked.connect(self.add_worker)
         self.remove_worker_button.clicked.connect(self.remove_worker)
 
@@ -63,154 +65,140 @@ class TaskManager(QMainWindow):
         self.task_layout.addWidget(self.task_table)
 
         self.task_form = QFormLayout()
-
-        # Инициализация QComboBox с работниками
         self.task_worker_input = QComboBox()
-
-        # Инициализация QLineEdit для заголовка задачи
         self.task_title_input = QLineEdit()
-
-        # Инициализация QDateEdit для даты начала
         self.task_start_input = QDateEdit()
-        self.task_start_input.setDisplayFormat('dd.MM.yyyy')  # Установите формат отображения
-        self.task_start_input.setCalendarPopup(True)  # Включить календарь
-        self.task_start_input.setDate(QDate.currentDate())  # Установить текущую дату
-
-        # Инициализация QDateEdit для даты конца
         self.task_end_input = QDateEdit()
-        self.task_end_input.setDisplayFormat('dd.MM.yyyy')  # Установите формат отображения
-        self.task_end_input.setCalendarPopup(True)  # Включить календарь
-        self.task_end_input.setDate(QDate.currentDate())  # Установить текущую дату
-
-        # Инициализация QComboBox для статуса задачи
         self.task_status_input = QComboBox()
-        self.task_status_input.addItems(['В процессе', 'Выполнено', 'Приостановлена'])
 
-        # Добавление виджетов в форму
-        self.task_form.addRow(QLabel('Worker:'), self.task_worker_input)
-        self.task_form.addRow(QLabel('Title:'), self.task_title_input)
-        self.task_form.addRow(QLabel('Start Date:'), self.task_start_input)
-        self.task_form.addRow(QLabel('End Date:'), self.task_end_input)
-        self.task_form.addRow(QLabel('Status:'), self.task_status_input)
+        self.initialize_task_form()
 
-        # Инициализация кнопок для задач
         self.task_buttons_layout = QVBoxLayout()
         self.add_task_button = QPushButton('Add Task')
         self.remove_task_button = QPushButton('Remove Task')
         self.task_buttons_layout.addWidget(self.add_task_button)
         self.task_buttons_layout.addWidget(self.remove_task_button)
 
-        # Добавление формы и кнопок на вкладку задач
         self.task_layout.addLayout(self.task_form)
         self.task_layout.addLayout(self.task_buttons_layout)
 
         self.task_tab.setLayout(self.task_layout)
 
-        # Подключение кнопок к методам
+        # Connect buttons to methods
         self.add_task_button.clicked.connect(self.add_task)
         self.remove_task_button.clicked.connect(self.remove_task)
 
+    def initialize_task_form(self):
+        self.task_start_input.setDisplayFormat('dd.MM.yyyy')
+        self.task_start_input.setCalendarPopup(True)
+        self.task_start_input.setDate(QDate.currentDate())
+
+        self.task_end_input.setDisplayFormat('dd.MM.yyyy')
+        self.task_end_input.setCalendarPopup(True)
+        self.task_end_input.setDate(QDate.currentDate())
+
+        self.task_status_input.addItems(['In Progress', 'Completed', 'Paused'])
+
+        self.task_form.addRow(QLabel('Worker:'), self.task_worker_input)
+        self.task_form.addRow(QLabel('Title:'), self.task_title_input)
+        self.task_form.addRow(QLabel('Start Date:'), self.task_start_input)
+        self.task_form.addRow(QLabel('End Date:'), self.task_end_input)
+        self.task_form.addRow(QLabel('Status:'), self.task_status_input)
+
     def update_data(self):
-        # Обновление данных на активной вкладке
-        if self.tabs.currentIndex() == 0:  # Вкладка работников
+        current_index = self.tabs.currentIndex()
+        if current_index == 0:  # Workers tab
             self.load_workers()
-        elif self.tabs.currentIndex() == 1:  # Вкладка задач
-            workers = self.load_workers()  # Для обновления данных в QComboBox
+        elif current_index == 1:  # Tasks tab
+            workers = self.load_workers()  # Update worker combo box
             self.task_worker_input.clear()
             self.task_worker_input.addItems([w[1] for w in workers])
             self.load_tasks()
 
     def add_worker(self):
-        try:
-            name = self.worker_name_input.text()
-            if name:
-                conn = sqlite3.connect('tasks.db')
-                cursor = conn.cursor()
-                cursor.execute('INSERT INTO workers (name) VALUES (?)', (name,))
-                conn.commit()
-                conn.close()
-                self.worker_name_input.clear()  # Очистить поле ввода
-                self.update_data()  # Обновить данные на вкладке работников
-            else:
-                print("Worker name is empty.")  # Отладочный вывод
-        except Exception as e:
-            print(f"Error adding worker: {e}")
+        name = self.worker_name_input.text().strip()
+        if name:
+            try:
+                with sqlite3.connect('tasks.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('INSERT INTO workers (name) VALUES (?)', (name,))
+                    conn.commit()
+                self.worker_name_input.clear()
+                self.update_data()
+            except Exception as e:
+                print(f"Error adding worker: {e}")
+        else:
+            print("Worker name is empty.")
 
     def remove_worker(self):
-        try:
-            selected_items = self.worker_list.selectedItems()
-            if selected_items:
-                selected_worker = selected_items[0].text()
-                worker_id = [w[0] for w in self.load_workers() if w[1] == selected_worker][0]
-                conn = sqlite3.connect('tasks.db')
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM workers WHERE id = ?', (worker_id,))
-                conn.commit()
-                conn.close()
-                self.update_data()  # Обновить данные на вкладке работников
-            else:
-                print("No worker selected.")  # Отладочный вывод
-        except Exception as e:
-            print(f"Error removing worker: {e}")
+        selected_items = self.worker_list.selectedItems()
+        if selected_items:
+            selected_worker = selected_items[0].text()
+            try:
+                workers = self.load_workers()
+                worker_id = next((w[0] for w in workers if w[1] == selected_worker), None)
+                if worker_id:
+                    with sqlite3.connect('tasks.db') as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('DELETE FROM workers WHERE id = ?', (worker_id,))
+                        conn.commit()
+                    self.update_data()
+                else:
+                    print(f"No worker found with name: {selected_worker}")
+            except Exception as e:
+                print(f"Error removing worker: {e}")
+        else:
+            print("No worker selected.")
 
     def add_task(self):
-        try:
-            worker_name = self.task_worker_input.currentText()
-            title = self.task_title_input.text()
-            start_date = self.task_start_input.date().toString('yyyy-MM-dd')  # Форматируем дату
-            end_date = self.task_end_input.date().toString('yyyy-MM-dd')  # Форматируем дату
-            status = self.task_status_input.currentText()  # Получаем выбранный статус из QComboBox
+        worker_name = self.task_worker_input.currentText()
+        title = self.task_title_input.text().strip()
+        start_date = self.task_start_input.date().toString('yyyy-MM-dd')
+        end_date = self.task_end_input.date().toString('yyyy-MM-dd')
+        status = self.task_status_input.currentText()
 
-            workers = self.load_workers()
-            worker_id = [w[0] for w in workers if w[1] == worker_name]
+        workers = self.load_workers()
+        worker_id = next((w[0] for w in workers if w[1] == worker_name), None)
 
-            if not worker_id:
-                print(f"No worker found with name: {worker_name}")
-                return
-
-            worker_id = worker_id[0]
-            if title and worker_id:
-                conn = sqlite3.connect('tasks.db')
-                cursor = conn.cursor()
-                cursor.execute('INSERT INTO tasks (worker_id, title, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
-                               (worker_id, title, start_date, end_date, status))
-                conn.commit()
-                conn.close()
+        if title and worker_id:
+            try:
+                with sqlite3.connect('tasks.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        'INSERT INTO tasks (worker_id, title, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
+                        (worker_id, title, start_date, end_date, status)
+                    )
+                    conn.commit()
                 self.task_title_input.clear()
-                self.task_status_input.setCurrentIndex(0)  # Сбросить выбор статуса на первый элемент
-                self.update_data()  # Обновить данные на вкладке задач
-            else:
-                print("Title or worker ID is empty.")
-        except Exception as e:
-            print(f"Error adding task: {e}")
+                self.task_status_input.setCurrentIndex(0)
+                self.update_data()
+            except Exception as e:
+                print(f"Error adding task: {e}")
+        else:
+            print("Title or worker ID is empty.")
 
     def remove_task(self):
-        try:
-            selected_items = self.task_table.selectedItems()
-            if selected_items:
-                # Получаем ID задачи из первой ячейки выбранной строки
-                selected_row = selected_items[0].row()
-                task_id = self.task_table.item(selected_row, 0).text()  # ID задачи в первом столбце
-
-                conn = sqlite3.connect('tasks.db')
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-                conn.commit()
-                conn.close()
-                self.update_data()  # Обновить данные на вкладке задач
-            else:
-                print("No task selected.")  # Отладочный вывод
-        except Exception as e:
-            print(f"Error removing task: {e}")
-
+        selected_items = self.task_table.selectedItems()
+        if selected_items:
+            selected_row = selected_items[0].row()
+            task_id = self.task_table.item(selected_row, 0).text()
+            try:
+                with sqlite3.connect('tasks.db') as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+                    conn.commit()
+                self.update_data()
+            except Exception as e:
+                print(f"Error removing task: {e}")
+        else:
+            print("No task selected.")
 
     def load_workers(self):
         try:
-            conn = sqlite3.connect('tasks.db')
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM workers')
-            workers = cursor.fetchall()
-            conn.close()
+            with sqlite3.connect('tasks.db') as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM workers')
+                workers = cursor.fetchall()
             self.worker_list.clear()
             for worker in workers:
                 self.worker_list.addItem(worker[1])
@@ -221,20 +209,17 @@ class TaskManager(QMainWindow):
 
     def load_tasks(self):
         try:
-            conn = sqlite3.connect('tasks.db')
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
-                FROM tasks
-                JOIN workers ON tasks.worker_id = workers.id
-            ''')
-            tasks = cursor.fetchall()
-            conn.close()
+            with sqlite3.connect('tasks.db') as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
+                    FROM tasks
+                    JOIN workers ON tasks.worker_id = workers.id
+                ''')
+                tasks = cursor.fetchall()
 
             self.task_table.setRowCount(len(tasks))
-            self.task_table.setColumnCount(6)  # Устанавливаем количество столбцов
-
-            # Устанавливаем заголовки столбцов
+            self.task_table.setColumnCount(6)
             self.task_table.setHorizontalHeaderLabels(['ID', 'Worker', 'Title', 'Start Date', 'End Date', 'Status'])
 
             for row, task in enumerate(tasks):
