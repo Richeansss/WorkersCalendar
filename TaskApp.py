@@ -2,10 +2,10 @@ import sys
 import sqlite3
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QListWidget,
-    QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem
+    QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem,
+    QCalendarWidget, QTextBrowser, QTableWidget, QHeaderView
 )
 from PyQt5.QtCore import QDate
-
 
 class TaskManager(QMainWindow):
     def __init__(self):
@@ -22,12 +22,15 @@ class TaskManager(QMainWindow):
 
         self.worker_tab = QWidget()
         self.task_tab = QWidget()
+        self.calendar_tab = QWidget()
 
         self.tabs.addTab(self.worker_tab, 'Workers')
         self.tabs.addTab(self.task_tab, 'Tasks')
+        self.tabs.addTab(self.calendar_tab, 'Calendar')
 
         self.setup_worker_tab()
         self.setup_task_tab()
+        self.setup_calendar_tab()
 
         # Connect tab change signal to data update method
         self.tabs.currentChanged.connect(self.update_data)
@@ -88,6 +91,32 @@ class TaskManager(QMainWindow):
         self.add_task_button.clicked.connect(self.add_task)
         self.remove_task_button.clicked.connect(self.remove_task)
 
+    def setup_calendar_tab(self):
+        self.calendar_layout = QVBoxLayout()
+
+        # Navigation Buttons
+        self.prev_month_button = QPushButton('<< Previous Month')
+        self.next_month_button = QPushButton('Next Month >>')
+        self.calendar_layout.addWidget(self.prev_month_button)
+        self.calendar_layout.addWidget(self.next_month_button)
+
+        # Calendar Table
+        self.calendar_table = QTableWidget(6, 7)
+        self.calendar_table.setHorizontalHeaderLabels(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+        self.calendar_table.horizontalHeader().setStretchLastSection(True)
+        self.calendar_table.verticalHeader().setVisible(False)
+        self.calendar_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.calendar_table.setSelectionMode(QTableWidget.NoSelection)
+        self.calendar_layout.addWidget(self.calendar_table)
+
+        self.prev_month_button.clicked.connect(self.show_prev_month)
+        self.next_month_button.clicked.connect(self.show_next_month)
+
+        self.current_date = QDate.currentDate()
+        self.show_month(self.current_date.year(), self.current_date.month())
+
+        self.calendar_tab.setLayout(self.calendar_layout)
+
     def initialize_task_form(self):
         self.task_start_input.setDisplayFormat('dd.MM.yyyy')
         self.task_start_input.setCalendarPopup(True)
@@ -114,6 +143,8 @@ class TaskManager(QMainWindow):
             self.task_worker_input.clear()
             self.task_worker_input.addItems([w[1] for w in workers])
             self.load_tasks()
+        elif current_index == 2:  # Calendar tab
+            self.show_month(self.current_date.year(), self.current_date.month())
 
     def add_worker(self):
         name = self.worker_name_input.text().strip()
@@ -211,23 +242,81 @@ class TaskManager(QMainWindow):
         try:
             with sqlite3.connect('tasks.db') as conn:
                 cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
-                    FROM tasks
-                    JOIN workers ON tasks.worker_id = workers.id
-                ''')
+                cursor.execute('SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
+                               'FROM tasks JOIN workers ON tasks.worker_id = workers.id')
                 tasks = cursor.fetchall()
 
-            self.task_table.setRowCount(len(tasks))
+            self.task_table.setRowCount(0)
             self.task_table.setColumnCount(6)
             self.task_table.setHorizontalHeaderLabels(['ID', 'Worker', 'Title', 'Start Date', 'End Date', 'Status'])
+            self.task_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-            for row, task in enumerate(tasks):
+            for task in tasks:
+                row_position = self.task_table.rowCount()
+                self.task_table.insertRow(row_position)
                 for column, item in enumerate(task):
-                    self.task_table.setItem(row, column, QTableWidgetItem(str(item)))
+                    self.task_table.setItem(row_position, column, QTableWidgetItem(str(item)))
         except Exception as e:
             print(f"Error loading tasks: {e}")
 
+    def show_month(self, year, month):
+        self.current_date = QDate(year, month, 1)
+        days_in_month = self.current_date.daysInMonth()
+        first_day_of_month = self.current_date.dayOfWeek() - 1  # Monday = 0, Sunday = 6
+        self.calendar_table.clearContents()
+
+        # Заполняем календарь числами и задачами
+        for i in range(1, days_in_month + 1):
+            day_date = QDate(year, month, i)
+            tasks = self.get_tasks_for_date(day_date.toString('yyyy-MM-dd'))
+
+            # Формируем строку с датой и задачами
+            task_str = f"{i}"
+            tooltip_str = ""
+            if tasks:
+                task_details = "\n".join([f"{task[1]}: {task[2]} ({task[5]})" for task in tasks])  # Добавлено имя работника
+                task_str = f"{i}\n{task_details}"
+                tooltip_str = task_details
+
+            # Создаем и устанавливаем элемент
+            day_item = QTableWidgetItem(task_str)
+            if tooltip_str:
+                day_item.setToolTip(tooltip_str)  # Устанавливаем тултип
+            row = (i + first_day_of_month - 1) // 7
+            col = (i + first_day_of_month - 1) % 7
+            self.calendar_table.setItem(row, col, day_item)
+
+        # Настройка размера заголовков таблицы
+        self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.calendar_table.resizeRowsToContents()  # Автоматическая настройка высоты строк
+
+
+    def get_tasks_for_date(self, date_str):
+        try:
+            with sqlite3.connect('tasks.db') as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    'SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
+                    'FROM tasks JOIN workers ON tasks.worker_id = workers.id '
+                    'WHERE tasks.start_date <= ? AND tasks.end_date >= ?',
+                    (date_str, date_str)
+                )
+                tasks = cursor.fetchall()
+                print(f"Tasks for {date_str}: {tasks}")  # Отладочное сообщение
+                return tasks
+        except Exception as e:
+            print(f"Error fetching tasks for date {date_str}: {e}")
+            return []
+
+
+    def show_prev_month(self):
+        self.current_date = self.current_date.addMonths(-1)
+        self.show_month(self.current_date.year(), self.current_date.month())
+
+    def show_next_month(self):
+        self.current_date = self.current_date.addMonths(1)
+        self.show_month(self.current_date.year(), self.current_date.month())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
