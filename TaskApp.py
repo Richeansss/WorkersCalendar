@@ -1,23 +1,39 @@
-import re
 import sys
 import sqlite3
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QListWidget,
     QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem,
-    QCalendarWidget, QTextBrowser, QTableWidget, QHeaderView
+    QCalendarWidget, QTextBrowser, QTableWidget, QHeaderView, QHBoxLayout
 )
 from PyQt5.QtCore import QDate
 from PyQt5.QtGui import QPixmap, QPainter, QColor
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QTableWidgetItem, QTableWidget
-import html
-
 
 class TaskManager(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Менеджер задач')
         self.setGeometry(100, 100, 1000, 800)
+
+        # Общий стиль для всех QPushButton
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #0079c2;
+                color: white; /* Белый текст */
+                border: none; /* Без границы */
+                padding: 10px 20px; /* Отступы */
+                text-align: center; /* Выравнивание текста по центру */
+                text-decoration: none; /* Без подчеркивания */
+                display: inline-block; /* Инлайн-блок */
+                font-size: 16px; /* Размер шрифта */
+                margin: 5px 2px; /* Отступы вокруг кнопки */
+                border-radius: 5px; /* Скругленные углы */
+            }
+            QPushButton:hover {
+                background-color: #45a049; /* Цвет при наведении */
+            }
+        """)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -100,15 +116,34 @@ class TaskManager(QMainWindow):
     def setup_calendar_tab(self):
         self.calendar_layout = QVBoxLayout()
 
-        # Navigation Buttons
-        self.prev_month_button = QPushButton('<< Предыдущий  месяц')
+        # Navigation Layout
+        self.nav_layout = QHBoxLayout()
+
+        self.prev_month_button = QPushButton('<< Предыдущий месяц')
         self.next_month_button = QPushButton('Следующий месяц >>')
-        self.calendar_layout.addWidget(self.prev_month_button)
-        self.calendar_layout.addWidget(self.next_month_button)
+
+        # Month and Year Label
+        self.month_year_label = QLabel()
+        self.month_year_label.setAlignment(Qt.AlignCenter)  # Выравнивание по центру
+        self.month_year_label.setStyleSheet("""
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 18px; /* Размер шрифта */
+            color: #333; /* Цвет текста */
+            margin: 0 10px; /* Отступы по бокам */
+        """)
+
+        # Add buttons and label to the navigation layout
+        self.nav_layout.addWidget(self.prev_month_button)
+        self.nav_layout.addWidget(self.month_year_label)
+        self.nav_layout.addWidget(self.next_month_button)
+
+        # Add navigation layout to main layout
+        self.calendar_layout.addLayout(self.nav_layout)
 
         # Calendar Table
-        self.calendar_table = QTableWidget(6, 7)
-        self.calendar_table.setHorizontalHeaderLabels(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+        self.calendar_table = QTableWidget(5, 7)
+        self.calendar_table.setHorizontalHeaderLabels(['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'])
         self.calendar_table.horizontalHeader().setStretchLastSection(True)
         self.calendar_table.verticalHeader().setVisible(False)
         self.calendar_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -265,59 +300,48 @@ class TaskManager(QMainWindow):
         except Exception as e:
             print(f"Ошибка при загрузке таблицы Задачи: {e}")
 
-    def strip_html_tags(self, text):
-        """Удаляет все HTML-теги из строки и декодирует сущности."""
-        # Удаляем HTML-теги
-        clean_text = re.sub(r'<[^>]+>', '', text)
-        # Декодируем сущности HTML
-        print(clean_text)
-        return html.unescape(clean_text)
-
-
     def show_month(self, year, month):
         self.current_date = QDate(year, month, 1)
         days_in_month = self.current_date.daysInMonth()
         first_day_of_month = self.current_date.dayOfWeek() - 1  # Monday = 0, Sunday = 6
         self.calendar_table.clearContents()
 
-        # Заполняем календарь числами и задачами
+        # Update the month and year label
+        self.month_year_label.setText(self.current_date.toString('MMMM yyyy'))
+
+        # Fill the calendar with days and tasks
         for i in range(1, days_in_month + 1):
             day_date = QDate(year, month, i)
             tasks = self.get_tasks_for_date(day_date.toString('yyyy-MM-dd'))
 
-            # Формируем строку с датой и задачами
-            task_str = f"{i}"
-            tooltip_str = ""
+            # Create a string with date and tasks
+            html_task_details = f"{i}<br>"  # Start with the day number and add HTML markup for a new line
             if tasks:
-                task_details = "\n".join([
+                task_details = "<br>".join([
                     f"{get_status_color_dot(task[5])} {task[1]}: {task[2]} ({task[5]})"
                     for task in tasks
-                ])  # Добавлено имя работника и цветная точка
-                task_str = f"{i}\n{self.strip_html_tags(task_details)}"  # Убираем HTML-код из текста
-                tooltip_str = f'<div style="white-space: pre-line;">{task_details}</div>'  # Оставляем HTML в тултипе
+                ])  # Added worker name and colored dot
 
-            # Создаем и устанавливаем элемент
-            day_item = QTableWidgetItem(task_str)
-            if tooltip_str:
-                day_item.setToolTip(tooltip_str)  # Устанавливаем тултип
+                html_task_details += task_details  # Add tasks to the string
 
-            # Изменяем цвет текста в зависимости от статуса первой задачи
+            # Create and set the widget
+            text_browser = QTextBrowser()
+            text_browser.setHtml(html_task_details)
+            self.calendar_table.setCellWidget((i + first_day_of_month - 1) // 7, (i + first_day_of_month - 1) % 7, text_browser)
+
+            # Change text color based on the status of the first task
             if tasks:
                 status_color = {
                     "завершена": "green",
                     "приостановлена": "yellow",
                     "в процессе": "blue"
-                }.get(tasks[0][5], "black")  # По умолчанию - черный цвет
-                day_item.setForeground(QColor(status_color))
+                }.get(tasks[0][5], "black")  # Default to black color
+                text_browser.setTextColor(QColor(status_color))
 
-            row = (i + first_day_of_month - 1) // 7
-            col = (i + first_day_of_month - 1) % 7
-            self.calendar_table.setItem(row, col, day_item)
-
-        # Настройка размера заголовков таблицы
+        # Set table header sizes
         self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.calendar_table.resizeRowsToContents()  # Автома
+        self.calendar_table.resizeRowsToContents()
 
     def get_tasks_for_date(self, date_str):
         try:
