@@ -1,3 +1,4 @@
+import re
 import sys
 import sqlite3
 from PyQt5.QtWidgets import (
@@ -6,6 +7,11 @@ from PyQt5.QtWidgets import (
     QCalendarWidget, QTextBrowser, QTableWidget, QHeaderView
 )
 from PyQt5.QtCore import QDate
+from PyQt5.QtGui import QPixmap, QPainter, QColor
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QTableWidgetItem, QTableWidget
+import html
+
 
 class TaskManager(QMainWindow):
     def __init__(self):
@@ -259,6 +265,15 @@ class TaskManager(QMainWindow):
         except Exception as e:
             print(f"Ошибка при загрузке таблицы Задачи: {e}")
 
+    def strip_html_tags(self, text):
+        """Удаляет все HTML-теги из строки и декодирует сущности."""
+        # Удаляем HTML-теги
+        clean_text = re.sub(r'<[^>]+>', '', text)
+        # Декодируем сущности HTML
+        print(clean_text)
+        return html.unescape(clean_text)
+
+
     def show_month(self, year, month):
         self.current_date = QDate(year, month, 1)
         days_in_month = self.current_date.daysInMonth()
@@ -274,14 +289,27 @@ class TaskManager(QMainWindow):
             task_str = f"{i}"
             tooltip_str = ""
             if tasks:
-                task_details = "\n".join([f"{task[1]}: {task[2]} ({task[5]})" for task in tasks])  # Добавлено имя работника
-                task_str = f"{i}\n{task_details}"
-                tooltip_str = task_details
+                task_details = "\n".join([
+                    f"{get_status_color_dot(task[5])} {task[1]}: {task[2]} ({task[5]})"
+                    for task in tasks
+                ])  # Добавлено имя работника и цветная точка
+                task_str = f"{i}\n{self.strip_html_tags(task_details)}"  # Убираем HTML-код из текста
+                tooltip_str = f'<div style="white-space: pre-line;">{task_details}</div>'  # Оставляем HTML в тултипе
 
             # Создаем и устанавливаем элемент
             day_item = QTableWidgetItem(task_str)
             if tooltip_str:
                 day_item.setToolTip(tooltip_str)  # Устанавливаем тултип
+
+            # Изменяем цвет текста в зависимости от статуса первой задачи
+            if tasks:
+                status_color = {
+                    "завершена": "green",
+                    "приостановлена": "yellow",
+                    "в процессе": "blue"
+                }.get(tasks[0][5], "black")  # По умолчанию - черный цвет
+                day_item.setForeground(QColor(status_color))
+
             row = (i + first_day_of_month - 1) // 7
             col = (i + first_day_of_month - 1) % 7
             self.calendar_table.setItem(row, col, day_item)
@@ -289,8 +317,7 @@ class TaskManager(QMainWindow):
         # Настройка размера заголовков таблицы
         self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.calendar_table.resizeRowsToContents()  # Автоматическая настройка высоты строк
-
+        self.calendar_table.resizeRowsToContents()  # Автома
 
     def get_tasks_for_date(self, date_str):
         try:
@@ -316,6 +343,25 @@ class TaskManager(QMainWindow):
     def show_next_month(self):
         self.current_date = self.current_date.addMonths(1)
         self.show_month(self.current_date.year(), self.current_date.month())
+
+def create_color_dot_pixmap(color, size=10):
+    """Создает QPixmap с точкой нужного цвета."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)  # Делает фон прозрачным
+    painter = QPainter(pixmap)
+    painter.setBrush(QColor(color))
+    painter.drawEllipse(0, 0, size, size)  # Рисуем круг (точку)
+    painter.end()
+    return pixmap
+
+def get_status_color_dot(status):
+    color_map = {
+        "Завершена": "green",
+        "Остановлена": "yellow",
+        "В процессе": "blue"  # Придуманный статус для "в процессе"
+    }
+    color = color_map.get(status, "gray")  # По умолчанию - серый цвет
+    return f'<span style="color:{color};">&#9679;</span>'
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
