@@ -10,7 +10,7 @@ from PyQt5.QtCore import QDate
 class TaskManager(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Task Manager')
+        self.setWindowTitle('Менеджер задач')
         self.setGeometry(100, 100, 1000, 800)
 
         self.central_widget = QWidget()
@@ -24,9 +24,9 @@ class TaskManager(QMainWindow):
         self.task_tab = QWidget()
         self.calendar_tab = QWidget()
 
-        self.tabs.addTab(self.worker_tab, 'Workers')
-        self.tabs.addTab(self.task_tab, 'Tasks')
-        self.tabs.addTab(self.calendar_tab, 'Calendar')
+        self.tabs.addTab(self.worker_tab, 'Работники')
+        self.tabs.addTab(self.task_tab, 'Задачи')
+        self.tabs.addTab(self.calendar_tab, 'Календарь')
 
         self.setup_worker_tab()
         self.setup_task_tab()
@@ -45,11 +45,11 @@ class TaskManager(QMainWindow):
 
         self.worker_form = QFormLayout()
         self.worker_name_input = QLineEdit()
-        self.worker_form.addRow(QLabel('Worker Name:'), self.worker_name_input)
+        self.worker_form.addRow(QLabel('Имя работника:'), self.worker_name_input)
 
         self.worker_buttons_layout = QVBoxLayout()
-        self.add_worker_button = QPushButton('Add Worker')
-        self.remove_worker_button = QPushButton('Remove Worker')
+        self.add_worker_button = QPushButton('Добавить работника')
+        self.remove_worker_button = QPushButton('Удалить работника')
         self.worker_buttons_layout.addWidget(self.add_worker_button)
         self.worker_buttons_layout.addWidget(self.remove_worker_button)
 
@@ -77,8 +77,8 @@ class TaskManager(QMainWindow):
         self.initialize_task_form()
 
         self.task_buttons_layout = QVBoxLayout()
-        self.add_task_button = QPushButton('Add Task')
-        self.remove_task_button = QPushButton('Remove Task')
+        self.add_task_button = QPushButton('Добавить задачу')
+        self.remove_task_button = QPushButton('Удалить задачу')
         self.task_buttons_layout.addWidget(self.add_task_button)
         self.task_buttons_layout.addWidget(self.remove_task_button)
 
@@ -95,8 +95,8 @@ class TaskManager(QMainWindow):
         self.calendar_layout = QVBoxLayout()
 
         # Navigation Buttons
-        self.prev_month_button = QPushButton('<< Previous Month')
-        self.next_month_button = QPushButton('Next Month >>')
+        self.prev_month_button = QPushButton('<< Предыдущий  месяц')
+        self.next_month_button = QPushButton('Следующий месяц >>')
         self.calendar_layout.addWidget(self.prev_month_button)
         self.calendar_layout.addWidget(self.next_month_button)
 
@@ -126,13 +126,13 @@ class TaskManager(QMainWindow):
         self.task_end_input.setCalendarPopup(True)
         self.task_end_input.setDate(QDate.currentDate())
 
-        self.task_status_input.addItems(['In Progress', 'Completed', 'Paused'])
+        self.task_status_input.addItems(['В прогрессе', 'Завершена', 'Остановлена'])
 
-        self.task_form.addRow(QLabel('Worker:'), self.task_worker_input)
-        self.task_form.addRow(QLabel('Title:'), self.task_title_input)
-        self.task_form.addRow(QLabel('Start Date:'), self.task_start_input)
-        self.task_form.addRow(QLabel('End Date:'), self.task_end_input)
-        self.task_form.addRow(QLabel('Status:'), self.task_status_input)
+        self.task_form.addRow(QLabel('Рабочий:'), self.task_worker_input)
+        self.task_form.addRow(QLabel('Название задачи:'), self.task_title_input)
+        self.task_form.addRow(QLabel('Дата начала:'), self.task_start_input)
+        self.task_form.addRow(QLabel('Дата конца:'), self.task_end_input)
+        self.task_form.addRow(QLabel('Статус:'), self.task_status_input)
 
     def update_data(self):
         current_index = self.tabs.currentIndex()
@@ -157,9 +157,9 @@ class TaskManager(QMainWindow):
                 self.worker_name_input.clear()
                 self.update_data()
             except Exception as e:
-                print(f"Error adding worker: {e}")
+                print(f"Ошибка при добавлении работника: {e}")
         else:
-            print("Worker name is empty.")
+            print("Имя работника не заполнено.")
 
     def remove_worker(self):
         selected_items = self.worker_list.selectedItems()
@@ -175,11 +175,11 @@ class TaskManager(QMainWindow):
                         conn.commit()
                     self.update_data()
                 else:
-                    print(f"No worker found with name: {selected_worker}")
+                    print(f"Не найден работник с именем: {selected_worker}")
             except Exception as e:
-                print(f"Error removing worker: {e}")
+                print(f"Ошибка удаления работника: {e}")
         else:
-            print("No worker selected.")
+            print("Работник не выбран.")
 
     def add_task(self):
         worker_name = self.task_worker_input.currentText()
@@ -204,9 +204,9 @@ class TaskManager(QMainWindow):
                 self.task_status_input.setCurrentIndex(0)
                 self.update_data()
             except Exception as e:
-                print(f"Error adding task: {e}")
+                print(f"Ошибка при добавлении задачи: {e}")
         else:
-            print("Title or worker ID is empty.")
+            print("Работник не выбран.")
 
     def remove_task(self):
         selected_items = self.task_table.selectedItems()
@@ -220,9 +220,9 @@ class TaskManager(QMainWindow):
                     conn.commit()
                 self.update_data()
             except Exception as e:
-                print(f"Error removing task: {e}")
+                print(f"Ошибка при удалении задачи: {e}")
         else:
-            print("No task selected.")
+            print("Задача не выбрана.")
 
     def load_workers(self):
         try:
@@ -235,7 +235,7 @@ class TaskManager(QMainWindow):
                 self.worker_list.addItem(worker[1])
             return workers
         except Exception as e:
-            print(f"Error loading workers: {e}")
+            print(f"Ошибка при загрузки таблицы Работники: {e}")
             return []
 
     def load_tasks(self):
@@ -257,7 +257,7 @@ class TaskManager(QMainWindow):
                 for column, item in enumerate(task):
                     self.task_table.setItem(row_position, column, QTableWidgetItem(str(item)))
         except Exception as e:
-            print(f"Error loading tasks: {e}")
+            print(f"Ошибка при загрузке таблицы Задачи: {e}")
 
     def show_month(self, year, month):
         self.current_date = QDate(year, month, 1)
@@ -303,7 +303,6 @@ class TaskManager(QMainWindow):
                     (date_str, date_str)
                 )
                 tasks = cursor.fetchall()
-                print(f"Tasks for {date_str}: {tasks}")  # Отладочное сообщение
                 return tasks
         except Exception as e:
             print(f"Error fetching tasks for date {date_str}: {e}")
