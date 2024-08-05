@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QDate, Qt
 from PyQt5.QtGui import QPixmap, QPainter, QColor
 
+
 class TaskManager(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -165,7 +166,7 @@ class TaskManager(QMainWindow):
         self.task_end_input.setCalendarPopup(True)
         self.task_end_input.setDate(QDate.currentDate())
 
-        self.task_status_input.addItems(['В прогрессе', 'Завершена', 'Остановлена'])
+        self.task_status_input.addItems(['В процессе', 'Завершена', 'Остановлена'])
 
         self.task_form.addRow(QLabel('Рабочий:'), self.task_worker_input)
         self.task_form.addRow(QLabel('Название задачи:'), self.task_title_input)
@@ -279,24 +280,52 @@ class TaskManager(QMainWindow):
 
     def load_tasks(self):
         try:
-            with sqlite3.connect('tasks.db') as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
-                               'FROM tasks JOIN workers ON tasks.worker_id = workers.id')
-                tasks = cursor.fetchall()
+            conn = sqlite3.connect('tasks.db')
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
+                FROM tasks
+                JOIN workers ON tasks.worker_id = workers.id
+            ''')
+            tasks = cursor.fetchall()
+            conn.close()
 
-            self.task_table.setRowCount(0)
+            self.task_table.clear()
+            self.task_table.setRowCount(len(tasks))
             self.task_table.setColumnCount(6)
             self.task_table.setHorizontalHeaderLabels(['ID', 'Worker', 'Title', 'Start Date', 'End Date', 'Status'])
-            self.task_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-            for task in tasks:
-                row_position = self.task_table.rowCount()
-                self.task_table.insertRow(row_position)
-                for column, item in enumerate(task):
-                    self.task_table.setItem(row_position, column, QTableWidgetItem(str(item)))
+            status_items = ['В процессе', 'Выполнено', 'Приостановлена']
+
+            for row_index, task in enumerate(tasks):
+                for col_index, data in enumerate(task):
+                    if col_index == 5:  # Столбец статуса
+                        combo_box = QComboBox()
+                        combo_box.addItems(status_items)
+                        combo_box.setCurrentText(data)
+                        combo_box.currentIndexChanged.connect(
+                            lambda index, row=row_index: self.update_task_status(row, status_items[index]))
+                        self.task_table.setCellWidget(row_index, col_index, combo_box)
+                    else:
+                        item = QTableWidgetItem(str(data))
+                        if col_index == 0:
+                            item.setData(Qt.UserRole, task[0])
+                        self.task_table.setItem(row_index, col_index, item)
+
+            self.task_table.resizeColumnsToContents()
         except Exception as e:
-            print(f"Ошибка при загрузке таблицы Задачи: {e}")
+            print(f"Error loading tasks: {e}")
+
+    def update_task_status(self, row, new_status):
+        try:
+            task_id = self.task_table.item(row, 0).data(Qt.UserRole)
+            conn = sqlite3.connect('tasks.db')
+            cursor = conn.cursor()
+            cursor.execute('UPDATE tasks SET status = ? WHERE id = ?', (new_status, task_id))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error updating task status: {e}")
 
     def show_month(self, year, month):
         self.current_date = QDate(year, month, 1)
@@ -325,12 +354,13 @@ class TaskManager(QMainWindow):
             # Create and set the widget
             text_browser = QTextBrowser()
             text_browser.setHtml(html_task_details)
-            self.calendar_table.setCellWidget((i + first_day_of_month - 1) // 7, (i + first_day_of_month - 1) % 7, text_browser)
+            self.calendar_table.setCellWidget((i + first_day_of_month - 1) // 7, (i + first_day_of_month - 1) % 7,
+                                              text_browser)
 
             # Change text color based on the status of the first task
             if tasks:
                 status_color = {
-                    "завершена": "green",
+                    "выполнено": "green",
                     "приостановлена": "yellow",
                     "в процессе": "blue"
                 }.get(tasks[0][5], "black")  # Default to black color
@@ -357,7 +387,6 @@ class TaskManager(QMainWindow):
             print(f"Error fetching tasks for date {date_str}: {e}")
             return []
 
-
     def show_prev_month(self):
         self.current_date = self.current_date.addMonths(-1)
         self.show_month(self.current_date.year(), self.current_date.month())
@@ -365,6 +394,7 @@ class TaskManager(QMainWindow):
     def show_next_month(self):
         self.current_date = self.current_date.addMonths(1)
         self.show_month(self.current_date.year(), self.current_date.month())
+
 
 def create_color_dot_pixmap(color, size=10):
     """Создает QPixmap с точкой нужного цвета."""
@@ -376,14 +406,16 @@ def create_color_dot_pixmap(color, size=10):
     painter.end()
     return pixmap
 
+
 def get_status_color_dot(status):
     color_map = {
-        "Завершена": "green",
-        "Остановлена": "yellow",
+        "Выполнено": "green",
+        "Приостановлена": "yellow",
         "В процессе": "blue"  # Придуманный статус для "в процессе"
     }
     color = color_map.get(status, "gray")  # По умолчанию - серый цвет
     return f'<span style="color:{color};">&#9679;</span>'
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
