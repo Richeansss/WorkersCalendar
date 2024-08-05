@@ -2,13 +2,11 @@ import sys
 import sqlite3
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QListWidget,
-    QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTableWidget, QTableWidgetItem,
-    QCalendarWidget, QTextBrowser, QTableWidget, QHeaderView, QHBoxLayout
+    QFormLayout, QLineEdit, QLabel, QTabWidget, QComboBox, QDateEdit, QTextBrowser, QHeaderView, QHBoxLayout,
+    QTableWidgetItem, QTableWidget
 )
-from PyQt5.QtCore import QDate
+from PyQt5.QtCore import QDate, Qt
 from PyQt5.QtGui import QPixmap, QPainter, QColor
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidgetItem, QTableWidget
 
 class TaskManager(QMainWindow):
     def __init__(self):
