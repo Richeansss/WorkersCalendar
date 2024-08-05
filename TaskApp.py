@@ -235,9 +235,17 @@ class TaskManager(QMainWindow):
             try:
                 with sqlite3.connect('tasks.db') as conn:
                     cursor = conn.cursor()
+                    # Вставляем задачу
                     cursor.execute(
-                        'INSERT INTO tasks (worker_id, title, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
-                        (worker_id, title, start_date, end_date, status)
+                        'INSERT INTO tasks (title, start_date, end_date, status) VALUES (?, ?, ?, ?)',
+                        (title, start_date, end_date, status)
+                    )
+                    task_id = cursor.lastrowid
+
+                    # Связываем задачу с работником
+                    cursor.execute(
+                        'INSERT INTO task_workers (task_id, worker_id) VALUES (?, ?)',
+                        (task_id, worker_id)
                     )
                     conn.commit()
                 self.task_title_input.clear()
@@ -283,10 +291,11 @@ class TaskManager(QMainWindow):
             conn = sqlite3.connect('tasks.db')
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
-                FROM tasks
-                JOIN workers ON tasks.worker_id = workers.id
-            ''')
+            SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status
+            FROM tasks
+            JOIN task_workers ON tasks.id = task_workers.task_id
+            JOIN workers ON task_workers.worker_id = workers.id
+        ''')
             tasks = cursor.fetchall()
             conn.close()
 
@@ -314,7 +323,8 @@ class TaskManager(QMainWindow):
 
             self.task_table.resizeColumnsToContents()
         except Exception as e:
-            print(f"Error loading tasks: {e}")
+            print(f"Ошибка при загрузке задач: {e}")
+
 
     def update_task_status(self, row, new_status):
         try:
@@ -377,7 +387,9 @@ class TaskManager(QMainWindow):
                 cursor = conn.cursor()
                 cursor.execute(
                     'SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
-                    'FROM tasks JOIN workers ON tasks.worker_id = workers.id '
+                    'FROM tasks '
+                    'JOIN task_workers ON tasks.id = task_workers.task_id '
+                    'JOIN workers ON task_workers.worker_id = workers.id '
                     'WHERE tasks.start_date <= ? AND tasks.end_date >= ?',
                     (date_str, date_str)
                 )
