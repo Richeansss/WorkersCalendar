@@ -235,8 +235,13 @@ class TaskManager(QMainWindow):
                 with sqlite3.connect('tasks.db') as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        'INSERT INTO tasks (worker_id, title, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
-                        (worker_id, title, start_date, end_date, status)
+                        'INSERT INTO tasks (title, start_date, end_date, status) VALUES (?, ?, ?, ?)',
+                        (title, start_date, end_date, status)
+                    )
+                    task_id = cursor.lastrowid
+                    cursor.execute(
+                        'INSERT INTO task_workers (task_id, worker_id) VALUES (?, ?)',
+                        (task_id, worker_id)
                     )
                     conn.commit()
                 self.task_title_input.clear()
@@ -281,8 +286,12 @@ class TaskManager(QMainWindow):
         try:
             with sqlite3.connect('tasks.db') as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
-                               'FROM tasks JOIN workers ON tasks.worker_id = workers.id')
+                cursor.execute('''
+                SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status 
+                FROM tasks 
+                JOIN task_workers ON tasks.id = task_workers.task_id 
+                JOIN workers ON task_workers.worker_id = workers.id
+            ''')
                 tasks = cursor.fetchall()
 
             self.task_table.setRowCount(0)
@@ -297,6 +306,7 @@ class TaskManager(QMainWindow):
                     self.task_table.setItem(row_position, column, QTableWidgetItem(str(item)))
         except Exception as e:
             print(f"Ошибка при загрузке таблицы Задачи: {e}")
+
 
     def show_month(self, year, month):
         self.current_date = QDate(year, month, 1)
@@ -345,18 +355,18 @@ class TaskManager(QMainWindow):
         try:
             with sqlite3.connect('tasks.db') as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    'SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status '
-                    'FROM tasks JOIN workers ON tasks.worker_id = workers.id '
-                    'WHERE tasks.start_date <= ? AND tasks.end_date >= ?',
-                    (date_str, date_str)
-                )
+                cursor.execute('''
+                SELECT tasks.id, workers.name, tasks.title, tasks.start_date, tasks.end_date, tasks.status 
+                FROM tasks 
+                JOIN task_workers ON tasks.id = task_workers.task_id 
+                JOIN workers ON task_workers.worker_id = workers.id 
+                WHERE tasks.start_date <= ? AND tasks.end_date >= ?
+            ''', (date_str, date_str))
                 tasks = cursor.fetchall()
                 return tasks
         except Exception as e:
             print(f"Error fetching tasks for date {date_str}: {e}")
             return []
-
 
     def show_prev_month(self):
         self.current_date = self.current_date.addMonths(-1)
